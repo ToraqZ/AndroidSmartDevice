@@ -1,20 +1,13 @@
 package fr.isen.cossu.androidsmartdevice
 
-import android.Manifest
-import android.bluetooth.BluetoothAdapter
-import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothProfile
-import android.content.pm.PackageManager
+import android.annotation.SuppressLint
+import android.bluetooth.*
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.text.BasicText
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,208 +16,221 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.core.app.ActivityCompat
+import java.util.UUID
 
 class DeviceConnectionActivity : ComponentActivity() {
-    private var bluetoothGatt: BluetoothGatt? = null
-    private var bluetoothDevice: BluetoothDevice? = null
-    private var ledCharacteristic: BluetoothGattCharacteristic? = null
     private var isConnected by mutableStateOf(false)
+    private var notificationCount by mutableStateOf(0)  // Compteur pour notificationCharacteristic
+    private var notificationCountBis by mutableStateOf(0)  // Compteur pour notificationCharacteristicbis
+
+    // Flags pour activer/désactiver les compteurs
+    private var isNotificationEnabled by mutableStateOf(false)
+    private var isNotificationBisEnabled by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Récupérer les données envoyées depuis ScanActivity
         val deviceName = intent.getStringExtra("deviceName")
         val deviceAddress = intent.getStringExtra("deviceAddress")
-
-        // Initialiser l'appareil Bluetooth
-        bluetoothDevice = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(deviceAddress)
 
         setContent {
             DeviceScreen(deviceName = deviceName, deviceAddress = deviceAddress)
         }
     }
 
-    private fun connectToDevice() {
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
-        bluetoothGatt = bluetoothDevice?.connectGatt(this, false, object : BluetoothGattCallback() {
+    // Connexion au périphérique Bluetooth
+    @SuppressLint("MissingPermission")
+    private fun connectToDevice(deviceAddress: String?) {
+        val bluetoothDevice = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(deviceAddress)
+        BluetoothManager.bluetoothGatt = bluetoothDevice.connectGatt(this, false, object : BluetoothGattCallback() {
             override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    Log.d("BLE", "Connected to GATT server. Discovering services...")
+                    Log.d("BLE", "Connected to GATT server.")
                     gatt.discoverServices()
+                    BluetoothManager.isConnected = true
                     isConnected = true
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     Log.d("BLE", "Disconnected from GATT server.")
+                    BluetoothManager.isConnected = false
                     isConnected = false
                 }
             }
 
             override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    val services = gatt.services
-                    ledCharacteristic = services?.get(2)?.characteristics?.get(0)
-                    Log.d("BLE", "Services discovered: ${services.map { it.uuid }}")
-                } else {
-                    Log.e("BLE", "Service discovery failed with status $status")
+                    // Accéder à la caractéristique LED du service 3
+                    val ledCharacteristic = gatt.services[2]?.characteristics?.get(0)
+                    if (ledCharacteristic != null) {
+                        BluetoothManager.ledCharacteristic = ledCharacteristic
+                        Log.d("BLE", "LED characteristic found.")
+                    } else {
+                        Log.d("BLE", "LED characteristic not found.")
+                    }
+
+                    // Abonnement à la première caractéristique de notifications
+                    val notificationCharacteristic = gatt.services[2]?.characteristics?.get(1)
+                    if (notificationCharacteristic != null) {
+                        gatt.setCharacteristicNotification(notificationCharacteristic, true)
+                        val descriptor = notificationCharacteristic.getDescriptor(
+                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        )
+                        descriptor?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        gatt.writeDescriptor(descriptor)
+                        Log.d("BLE", "Subscribed to notifications for characteristic 2 of service 3.")
+                    }
+
+                    // Abonnement à la deuxième caractéristique de notifications
+                    val notificationCharacteristicbis = gatt.services[3]?.characteristics?.get(0)
+                    if (notificationCharacteristicbis != null) {
+                        gatt.setCharacteristicNotification(notificationCharacteristicbis, true)
+                        val descriptorBis = notificationCharacteristicbis.getDescriptor(
+                            BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        )
+                        descriptorBis?.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                        gatt.writeDescriptor(descriptorBis)
+                        Log.d("BLE", "Subscribed to notifications for characteristic 1 of service 4.")
+                    }
                 }
             }
 
-            override fun onCharacteristicWrite(
-                gatt: BluetoothGatt,
-                characteristic: BluetoothGattCharacteristic,
-                status: Int
-            ) {
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    Log.d("BLE", "Characteristic written successfully: ${characteristic.uuid}")
-                } else {
-                    Log.e("BLE", "Failed to write characteristic: ${characteristic.uuid}")
+            override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+                super.onCharacteristicChanged(gatt, characteristic)
+                if (characteristic == gatt.services[2]?.characteristics?.get(1) && isNotificationEnabled) {
+                    // Notification reçue pour la première caractéristique
+                    notificationCount++
+                    Log.d("BLE", "Notification received for characteristic 2. Count: $notificationCount")
+                } else if (characteristic == gatt.services[3]?.characteristics?.get(0) && isNotificationBisEnabled) {
+                    // Notification reçue pour la deuxième caractéristique
+                    notificationCountBis++
+                    Log.d("BLE", "Notification received for characteristic 1. Count: $notificationCountBis")
                 }
             }
         })
     }
 
+    // Déconnexion du périphérique Bluetooth et retour à la page précédente
     private fun disconnectFromDevice() {
-        if (ActivityCompat.checkSelfPermission(
-                this,
-                Manifest.permission.BLUETOOTH_CONNECT
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return
-        }
-        bluetoothGatt?.disconnect()
-        bluetoothGatt?.close()
-        bluetoothGatt = null
-        Log.d("BLE", "Disconnected from device.")
+        BluetoothManager.bluetoothGatt?.disconnect()
+        BluetoothManager.bluetoothGatt?.close()
+        BluetoothManager.bluetoothGatt = null
+        BluetoothManager.isConnected = false
         isConnected = false
-        Toast.makeText(this, "Disconnected from device", Toast.LENGTH_SHORT).show()
+        Log.d("BLE", "Disconnected from GATT server.")
 
         // Retourner à la page précédente
-        finish()
+        finish() // Cela ferme l'activité en cours et retourne à la précédente
     }
 
-    private fun writeToLEDCharacteristic(state: LEDStateEnum) {
-        if (ledCharacteristic != null) {
-            ledCharacteristic?.value = state.hex
-            if (ActivityCompat.checkSelfPermission(
-                    this,
-                    Manifest.permission.BLUETOOTH_CONNECT
-                ) != PackageManager.PERMISSION_GRANTED
-            ) {
-                // Handle missing permission
-                return
-            }
-            bluetoothGatt?.writeCharacteristic(ledCharacteristic)
-            Log.d("BLE", "LED state set to: ${state.name}")
-        } else {
-            Log.e("BLE", "LED characteristic not found.")
+    // Commande pour allumer la LED
+    private fun turnOnLed() {
+        val ledCharacteristic = BluetoothManager.ledCharacteristic
+        ledCharacteristic?.let {
+            it.setValue(byteArrayOf(0x01))  // Exemple de valeur pour allumer la LED
+            BluetoothManager.bluetoothGatt?.writeCharacteristic(it)
+            Log.d("BLE", "LED turned ON")
+        }
+    }
+
+    // Commande pour éteindre la LED
+    private fun turnOffLed() {
+        val ledCharacteristic = BluetoothManager.ledCharacteristic
+        ledCharacteristic?.let {
+            it.setValue(byteArrayOf(0x00))  // Exemple de valeur pour éteindre la LED
+            BluetoothManager.bluetoothGatt?.writeCharacteristic(it)
+            Log.d("BLE", "LED turned OFF")
         }
     }
 
     @Composable
     fun DeviceScreen(deviceName: String?, deviceAddress: String?) {
         Column(
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Top
         ) {
-            Text("Device Connection Status", fontSize = 24.sp, fontWeight = FontWeight.Bold)
-
+            Text("Connect to Device", fontSize = 24.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(16.dp))
-
             Text("Device Name: ${deviceName ?: "Unknown"}", fontSize = 18.sp)
             Text("Device Address: ${deviceAddress ?: "Unknown"}", fontSize = 18.sp)
-
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Connection status indicator
-            Text(
-                text = if (isConnected) "Connected" else "Disconnected",
-                color = if (isConnected) Color.Green else Color.Red,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
+            // Bouton de connexion
             Button(
-                onClick = { connectToDevice() },
+                onClick = { connectToDevice(deviceAddress) },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF00FF)),
                 modifier = Modifier.fillMaxWidth().padding(8.dp)
             ) {
-                Text("Connect to Device")
+                Text(if (isConnected) "Connected" else "Connect")
             }
 
-            Spacer(modifier = Modifier.height(16.dp))
+            // Affiche le compteur de notifications pour notificationCharacteristic
+            if (isConnected) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Notification Count 1: $notificationCount", fontSize = 18.sp, fontWeight = FontWeight.Bold)
 
-            Button(
-                onClick = { writeToLEDCharacteristic(LEDStateEnum.LED_1) },
-                modifier = Modifier.fillMaxWidth().padding(8.dp)
-            ) {
-                Text("Turn On LED 1")
-            }
+                // Case à cocher pour activer/désactiver le compteur 1
+                Row(
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    horizontalArrangement = Arrangement.SpaceAround,verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isNotificationEnabled,
+                        onCheckedChange = { isNotificationEnabled = it }
+                    )
+                    Text("Enable Notification Count 1", fontSize = 16.sp)
+                }
 
-            Button(
-                onClick = { writeToLEDCharacteristic(LEDStateEnum.LED_2) },
-                modifier = Modifier.fillMaxWidth().padding(8.dp)
-            ) {
-                Text("Turn On LED 2")
-            }
+                // Affiche le compteur de notifications pour notificationCharacteristicbis
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Notification Count 2: $notificationCountBis", fontSize = 18.sp, fontWeight = FontWeight.Bold)
 
-            Spacer(modifier = Modifier.height(16.dp))
+                // Case à cocher pour activer/désactiver le compteur 2
+                Row(
 
-            Button(
-                onClick = { writeToLEDCharacteristic(LEDStateEnum.LED_3) },
-                modifier = Modifier.fillMaxWidth().padding(8.dp)
-            ) {
-                Text("Turn On LED 3")
-            }
+                    horizontalArrangement = Arrangement.SpaceAround,verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = isNotificationBisEnabled,
+                        onCheckedChange = { isNotificationBisEnabled = it }
+                    )
+                    Text("Enable Notification Count 2", fontSize = 16.sp)
+                }
 
-            Spacer(modifier = Modifier.height(16.dp))
+                // Bouton pour accéder au contrôle des LED si connecté
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = {
+                        startActivity(
+                            Intent(this@DeviceConnectionActivity, LedControlActivity::class.java)
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF00FF00)),
+                    modifier = Modifier.fillMaxWidth().padding(8.dp)
+                ) {
+                    Text("Go to LED Control")
+                }
 
-            Button(
-                onClick = { writeToLEDCharacteristic(LEDStateEnum.NONE) },
-                modifier = Modifier.fillMaxWidth().padding(8.dp)
-            ) {
-                Text("Turn Off LED")
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Button(
-                onClick = { disconnectFromDevice() },
-                modifier = Modifier.fillMaxWidth().padding(8.dp)
-            ) {
-                Text("Disconnect from Device")
+                // Bouton de déconnexion
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { disconnectFromDevice() },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
+                    modifier = Modifier.fillMaxWidth().padding(8.dp)
+                ) {
+                    Text("Disconnect from Device")
+                }
             }
         }
     }
+}
 
-    override fun onDestroy() {
-        super.onDestroy()
-        disconnectFromDevice()
+private fun BluetoothGattCharacteristic?.getDescriptor(enableNotificationValue: ByteArray?): BluetoothGattDescriptor? {
+    if (this == null) return null
+
+    // Récupère le Client Characteristic Configuration Descriptor (CCCD)
+    val descriptor = this.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+    if (descriptor != null) {
+        descriptor.value = enableNotificationValue
     }
+    return descriptor
 }

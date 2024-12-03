@@ -26,14 +26,9 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AndroidSmartDevice">
         <activity
-            android:name=".LedControle"
+            android:name=".LedControlActivity"
             android:exported="false"
-            android:label="@string/title_activity_led_controle"
-            android:theme="@style/Theme.AndroidSmartDevice" />
-        <activity
-            android:name=".BtInterface"
-            android:exported="false"
-            android:label="@string/title_activity_bt_interface"
+            android:label="@string/title_activity_led_control"
             android:theme="@style/Theme.AndroidSmartDevice" />
         <activity
             android:name=".DeviceConnectionActivity"

@@ -113,18 +113,21 @@ fun ScanBleScreen(
     }
 
     Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Top
+
     ) {
         // Bouton retour
         Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceAround,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+
         ) {
             Icon(
                 imageVector = Icons.Default.ArrowBack,
@@ -134,7 +137,7 @@ fun ScanBleScreen(
                     .clickable { onBackPressed() }
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "Scan BLE", fontSize = 24.sp)
+            Text(text = "\u2728 " +  "Scan BLE", fontSize = 24.sp)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -148,6 +151,7 @@ fun ScanBleScreen(
         ) {
             Button(
                 onClick = { onScanButtonClick() },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFFF00FF)),
                 modifier = Modifier.size(150.dp)
             ) {
                 Image(
@@ -211,6 +215,8 @@ fun DeviceItem(
     onClick: () -> Unit
 ) {
     Column(
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
             .padding(8.dp)
@@ -223,8 +229,8 @@ fun DeviceItem(
             fontSize = 18.sp,
             fontWeight = FontWeight.Bold
         )
-        Text(text = "Adresse : $deviceAddress", fontSize = 14.sp, color = Color.Gray)
-        Text(text = "Signal : $signalStrength dBm", fontSize = 14.sp, color = Color.Gray)
+        Text(text = "\u2728 " +  "Adresse : $deviceAddress", fontSize = 14.sp, color = Color.Gray)
+        Text(text = "\u2728 " +  "Signal : $signalStrength dBm", fontSize = 14.sp, color = Color.Gray)
 
         // Affichage des UUIDs
         if (uuidList.isNotEmpty()) {
@@ -278,22 +284,25 @@ fun BluetoothAlertDialog(
         onDismissRequest = onDismiss
     ) {
         Column(
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp)
                 .background(color = Color.White)
         ) {
-            Text(text = "Le Bluetooth est désactivé. Souhaitez-vous l'activer ?", fontSize = 18.sp)
+            Text(text = "\u2728 " +  "Le Bluetooth est désactivé. Souhaitez-vous l'activer ?", fontSize = 18.sp)
             Spacer(modifier = Modifier.height(16.dp))
             Row(
+                verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Button(onClick = onDismiss) {
-                    Text(text = "Annuler")
+                    Text(text = "\u2728 " +  "Annuler")
                 }
                 Button(onClick = onEnableBluetooth) {
-                    Text(text = "Activer")
+                    Text(text = "\u2728 " +  "Activer")
                 }
             }
         }

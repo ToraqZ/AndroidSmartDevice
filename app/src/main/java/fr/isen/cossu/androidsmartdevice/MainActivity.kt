@@ -1,3 +1,4 @@
+
 package fr.isen.cossu.androidsmartdevice
 
 import android.Manifest
@@ -9,16 +10,16 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.ActivityCompat
@@ -26,24 +27,20 @@ import androidx.core.content.ContextCompat
 import fr.isen.cossu.androidsmartdevice.ui.theme.AndroidSmartDeviceTheme
 
 class MainActivity : ComponentActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             AndroidSmartDeviceTheme {
-                PresentationScreen(onStartClicked = {
-                    checkPermissionsAndStart() // Vérifie les permissions et lance ListeActiviter si accordées
+                UpdatedPresentationScreen(onStartClicked = {
+                    checkPermissionsAndStart()
                 })
             }
         }
     }
 
     private fun checkPermissionsAndStart() {
-        // Vérification de la version Android et des permissions
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val permissionsNeeded = mutableListOf<String>()
-
-            // Vérifiez chaque permission et ajoutez-la à la liste si elle n'est pas encore accordée
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.BLUETOOTH_SCAN)
             }
@@ -53,8 +50,6 @@ class MainActivity : ComponentActivity() {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 permissionsNeeded.add(Manifest.permission.ACCESS_FINE_LOCATION)
             }
-
-            // Si des permissions sont manquantes, les demander
             if (permissionsNeeded.isNotEmpty()) {
                 ActivityCompat.requestPermissions(
                     this,
@@ -62,21 +57,18 @@ class MainActivity : ComponentActivity() {
                     1
                 )
             } else {
-                // Si toutes les permissions sont déjà accordées, lancez l'activité
                 startListeActiviter()
             }
         } else {
-            // Si la version est inférieure à Marshmallow, lancez directement l'activité
             startListeActiviter()
         }
     }
 
     private fun startListeActiviter() {
         val intent = Intent(this, ListeActiviter::class.java)
-        startActivity(intent) // Lance l'activité ListeActiviter
+        startActivity(intent)
     }
 
-    // Gérer la réponse de la demande de permission
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -85,62 +77,76 @@ class MainActivity : ComponentActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 1) {
             if (grantResults.isNotEmpty() && grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                // Si toutes les permissions sont accordées, lancez l'activité ListeActiviter
                 startListeActiviter()
             } else {
-                // Si des permissions sont refusées, affichez un message d'erreur
-                Toast.makeText(this, "Les permissions sont nécessaires pour scanner les appareils Bluetooth", Toast.LENGTH_LONG).show()
+                Toast.makeText(this, "Les autorisations Bluetooth sont nécessaires pour scanner les appareils.", Toast.LENGTH_LONG).show()
             }
         }
     }
 }
 
 @Composable
-fun PresentationScreen(onStartClicked: () -> Unit) {
+fun UpdatedPresentationScreen(onStartClicked: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .background(Color.White)
             .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+        verticalArrangement = Arrangement.SpaceBetween,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Spacer(modifier = Modifier.height(32.dp))
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(250.dp)
-                .padding(16.dp)
-                .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+                .height(200.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primary)
         ) {
             Image(
-                painter = painterResource(id = R.drawable.welcome),
+                painter = painterResource(id = android.R.drawable.ic_menu_camera), // Exemple d'icône par défaut
                 contentDescription = "Logo de l'application",
                 modifier = Modifier.fillMaxSize()
             )
         }
-        Text(
-            text = "Android Smart Device",
-            fontSize = 24.sp
-        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         Text(
-            text = "Cette application vous permet de scanner les appareils Bluetooth Low Energy à proximité.",
-            fontSize = 16.sp
+            text = "Bienvenue sur Android Smart Device",
+            fontSize = 26.sp,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 8.dp)
+        )
+
+        Text(
+            text = "Votre solution simple et rapide pour détecter et connecter vos appareils Bluetooth Low Energy. Lancez des recherches, connectez vos équipements, et gérez vos appareils intelligents avec facilité.",
+            fontSize = 16.sp,
+            color = MaterialTheme.colorScheme.secondary,
+            modifier = Modifier.padding(horizontal = 8.dp),
+            lineHeight = 22.sp
         )
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        Button(onClick = onStartClicked) {
-            Text(text = "Commencer")
+        Button(
+            onClick = onStartClicked,
+            modifier = Modifier.fillMaxWidth(0.6f),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            )
+        ) {
+            Text(text = "Commencer l'exploration", fontSize = 18.sp)
         }
-    }
-}
 
-@Preview(showBackground = true)
-@Composable
-fun PresentationScreenPreview() {
-    AndroidSmartDeviceTheme {
-        PresentationScreen(onStartClicked = {})
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Text(
+            text = "Facilitez vos connexions Bluetooth dès aujourd'hui.",
+            fontSize = 14.sp,
+            color = MaterialTheme.colorScheme.tertiary
+        )
     }
 }
